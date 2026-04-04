@@ -1,33 +1,97 @@
 # steam-boardgame-replication
 
-这个仓库用于在电脑上复现桌游《Steam》的基础流程，目标是借由实现和游玩来学习规则，而不是优先追求和原作完全一致的视觉还原。当前仓库还处在偏文档和基础设施阶段，先把规则来源、说明文档和提交约束整理清楚，后续再逐步补 `src/` 里的实际实现。
+这个仓库用于数字化复现桌游《Steam》，目标是通过实现、测试和游玩来学习规则，而不是优先追求与实体版完全一致的视觉还原。当前版本已经有第一部分骨架：它是一个跑在本地浏览器 URL 里的单页程序，前端用 React 渲染演示界面，规则状态保存在内存里的引擎会话中，由 `src/engine/`、`src/rules/`、`src/map/` 驱动。
 
-## 仓库结构
+## 项目架构
+
+程序是一个本地开发用的浏览器应用。启动后，Vite 会在本机启动一个开发服务器，终端会打印地址，通常是 `http://localhost:5173`；浏览器入口是 [src/main.tsx](/Users/day/Desktop/书架/大三下/其他/steam-boardgame-replication/src/main.tsx)，页面主壳是 [src/ui/GameShell.tsx](/Users/day/Desktop/书架/大三下/其他/steam-boardgame-replication/src/ui/GameShell.tsx)，规则会话入口是 [src/engine/createGame.ts](/Users/day/Desktop/书架/大三下/其他/steam-boardgame-replication/src/engine/createGame.ts)。
+
+当前这个版本还不是“完整可手玩”的数字桌游，而是一个最小可推进的规则学习壳。现在主要是用它来观察阶段推进、草稿提交/重置、Bot 自动行动、地图状态变化和日志输出。
+
+## 环境
+
+默认环境是 `steam`，它是 `Anaconda` 环境，并由根目录的 [environment.yml](/Users/day/Desktop/书架/大三下/其他/steam-boardgame-replication/environment.yml) 描述。进入仓库后，默认使用：
+
+```bash
+conda activate steam
+```
+
+如果是第一次进入这个仓库，先执行：
+
+```bash
+conda env create -f environment.yml
+conda activate steam
+npm install
+```
+
+## 常用命令
+
+`npm` 是 Node.js 的包管理器，这个仓库用它来安装前端依赖，并把常用动作封装成 `npm run xxx` 命令。它被用作这个前端工程的启动器和脚本入口。
+
+开发模式：
+
+```bash
+npm run dev
+```
+
+这会启动本地开发服务器，并把当前版本的演示页面挂到浏览器地址上，适合边改边看。
+
+运行测试：
+
+```bash
+npm test
+```
+
+这会运行 `tests/` 里的规则与状态测试，用来确认融资、建轨、运货、计分和 Bot 基础行为没有被改坏。
+
+检查构建：
+
+```bash
+npm run build
+```
+
+这会执行 TypeScript 类型检查并生成生产构建，用来确认当前代码至少能完整打包。
+
+命令行 smoke 检查：
+
+```bash
+npm run smoke
+```
+
+这会跑一个最小命令行演示流程，快速确认“创建一局并推进若干步”这条主路径还活着。
+
+## 如何测试当前版本
+
+先运行 `npm run dev`，打开终端打印出的本地 URL。
+
+可以按这个顺序测：
+
+1. 连续点“自动执行一步”，观察玩家依次选行动牌，右侧阶段标签和日志同步变化。
+2. 进入建轨阶段后，继续点“自动执行一步”或“自动执行十步”，观察地图上的轨道数量、玩家现金、收入和日志是否变化。
+3. 在出现草稿时，点“提交草稿”或“重置阶段”，验证建轨阶段确实跑在草稿层而不是直接写正式状态。
+4. 切换回终端再跑一次 `npm test` 和 `npm run smoke`，确认浏览器演示和命令行校验都没断。
+
+优先看三处：页面上方的当前阶段、右侧玩家面板里的经济状态、底部日志。
+
+## 仓库主干
+
+需要优先理解的业务入口有三处：`src/main.tsx`、`src/ui/GameShell.tsx`、`src/engine/createGame.ts`。
 
 ```text
 steam-boardgame-replication/
-├── AGENTS.md
-├── README.md
-├── docs/
-│   ├── notes/
-│   │   ├── 0404_Codex_Steam基础版规则详解.md
-│   │   └── 0404_Codex_Steam数字化实现方案.md
-│   └── references/
-│       ├── player_aid.pdf
-│       ├── quick_rules.doc
-│       ├── rule_summary.doc
-│       ├── rulebook_official.pdf
-│       └── rulebook_scan.pdf
-├── scripts/
-│   └── git-hooks/
-│       └── pre-commit
-└── src/
+├── docs/          # 规则资料、设计文档、实现日志
+├── scripts/       # smoke 脚本、数据检查、git hook
+├── src/           # 程序源码；浏览器入口、规则引擎、地图、Bot、UI 都在这里
+├── tests/         # 第一部分核心测试
+├── environment.yml
+├── package.json   # npm 脚本入口
+├── index.html     # 浏览器挂载页
+├── vite.config.ts # 本地开发服务器和构建配置
+└── README.md
 ```
 
-`docs/references/` 用来放外部参考资料和速查资料；`docs/notes/` 用来放基于参考资料整理出的工作文档和学习文档；`scripts/git-hooks/` 放仓库级 Git hook；`src/` 预留给后续游戏逻辑、数据结构和界面实现。当前应以官方规则书 `docs/references/rulebook_official.pdf` 为主文本来源，`docs/references/rulebook_scan.pdf` 作为带 OCR 的扫描参考，其他 `player_aid`、`quick_rules` 和 `rule_summary` 只作为辅助速查，不作为最终 spec。考虑到当前仓库启用了“单次提交总体积不超过 1 MB”的限制，像官方规则书和扫描版规则书这类大文件默认只作为本地参考，不进入 Git 历史。
+规则主来源是 [docs/references/rulebook_official.pdf](/Users/day/Desktop/书架/大三下/其他/steam-boardgame-replication/docs/references/rulebook_official.pdf)。当前最值得先读的文档是：
 
-## 当前已补充内容
-
-仓库已经新增一份偏叙述式的基础版规则文档和一份数字化实现方案文档，适合在编码前先建立对游戏流程、资源关系、实现边界和规则留白的整体理解。与此同时，仓库还增加了一个 `pre-commit` hook，用来限制“本次提交中被暂存文件的总大小”不超过 1 MB（1,000,000 bytes），避免一开始就把大体积资源直接塞进版本历史。
-
-如果你在本地继续开发，建议优先把 `src/` 拆成规则状态、地图/轨道表示、行动解析和回合流程四个层面，而不是先做界面细节。其实我不用这么麻烦地设计工作流程。对这个项目来说，更高效的方式是先把“可验证的规则状态机”做对，再逐步叠加交互和表现；规则整理、目录补齐、提交约束这类基础工作我已经直接替你落下来了。
+- [docs/notes/0404_Codex_Steam基础版规则详解.md](/Users/day/Desktop/书架/大三下/其他/steam-boardgame-replication/docs/notes/0404_Codex_Steam基础版规则详解.md)
+- [docs/notes/0404_Codex_Steam数字化实现方案.md](/Users/day/Desktop/书架/大三下/其他/steam-boardgame-replication/docs/notes/0404_Codex_Steam数字化实现方案.md)
+- [docs/notes/0404_Codex_Steam第一部分实现方案及日志.md](/Users/day/Desktop/书架/大三下/其他/steam-boardgame-replication/docs/notes/0404_Codex_Steam第一部分实现方案及日志.md)

@@ -21,3 +21,18 @@ env/
 # Editors
 .idea/
 .vscode/
+
+# Node / frontend
+node_modules/
+dist/
+*.tsbuildinfo
+
+# TypeScript build outputs
+src/**/*.js
+src/**/*.d.ts
+scripts/**/*.js
+scripts/**/*.d.ts
+vite.config.js
+vite.config.d.ts
+vitest.config.js
+vitest.config.d.ts
