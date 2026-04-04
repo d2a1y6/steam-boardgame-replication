@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+# 功能概述：在提交前检查本次暂存文件的总体积，避免超出仓库约定上限。
+# 输入输出：读取 Git index 中已暂存的文件列表与对应 blob 大小；若总大小超过阈值则报错退出。
+# 处理流程：筛选暂存的新增/修改文件，累加 staged blob 大小，超过 1 MB 时阻止提交。
+
+set -euo pipefail
+
+LIMIT_BYTES=1000000
+TOTAL_BYTES=0
+
+while IFS= read -r -d '' path; do
+  size=$(git cat-file -s ":$path" 2>/dev/null || printf '0')
+  TOTAL_BYTES=$((TOTAL_BYTES + size))
+done < <(git diff --cached --name-only --diff-filter=ACMR -z)
+
+if [ "$TOTAL_BYTES" -gt "$LIMIT_BYTES" ]; then
+  printf 'pre-commit: staged files total size is %s bytes, which exceeds the 1 MB limit (%s bytes).\n' "$TOTAL_BYTES" "$LIMIT_BYTES" >&2
+  printf '请缩小本次提交体积，或拆分提交后重试。\n' >&2
+  exit 1
+fi
+
+exit 0

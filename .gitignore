@@ -1,0 +1,23 @@
+# macOS
+.DS_Store
+
+# Large local references
+docs/references/*.pdf
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Environments
+.venv/
+venv/
+env/
+.env
+
+# Editors
+.idea/
+.vscode/
