@@ -39,12 +39,13 @@ import { TilePoolPanel } from "./TilePoolPanel";
 import { TrackPalettePanel } from "./TrackPalettePanel";
 import { TrackPlacementPanel } from "./TrackPlacementPanel";
 import { TurnOrderPanel } from "./TurnOrderPanel";
+import { buildDefaultPlayerNames } from "../utils/playerNames";
 
 const HUMAN_PLAYER_ID = "player-1";
 
 function createPlayableSession(): EngineSession {
   return createGame({
-    playerNames: ["Ada", "Babbage", "Curie"],
+    playerNames: buildDefaultPlayerNames(3),
     botPlayerIds: ["player-2", "player-3"],
     mapId: "ne-usa-se-canada",
     mode: "base",
@@ -95,7 +96,7 @@ function parseSourceKey(sourceId: string | null) {
  */
 export function GameShell() {
   const [session, setSession] = useState<EngineSession>(() => createPlayableSession());
-  const [notice, setNotice] = useState("当前默认由 Ada 作为真人玩家；先在行动牌面板中选牌。");
+  const [notice, setNotice] = useState("当前默认由 Alice 作为真人玩家；先在行动牌面板中选牌。");
   const [selectedTrackTileId, setSelectedTrackTileId] = useState<string | null>("21");
   const [selectedBuildHexId, setSelectedBuildHexId] = useState<string | null>(null);
   const [selectedRotation, setSelectedRotation] = useState<number | null>(null);

@@ -6,7 +6,7 @@
 
 程序是一个本地开发用的浏览器应用。启动后，Vite 会在本机启动一个开发服务器，终端会打印地址，通常是 `http://localhost:5173`；浏览器入口是 [src/main.tsx](/Users/day/Desktop/书架/大三下/其他/steam-boardgame-replication/src/main.tsx)，页面主壳是 [src/ui/GameShell.tsx](/Users/day/Desktop/书架/大三下/其他/steam-boardgame-replication/src/ui/GameShell.tsx)，规则会话入口是 [src/engine/createGame.ts](/Users/day/Desktop/书架/大三下/其他/steam-boardgame-replication/src/engine/createGame.ts)。
 
-当前这个版本已经支持“1 真人 + 2 Bot”的基础版原型。默认由 `Ada` 作为真人玩家，`Babbage` 和 `Curie` 由 Bot 托管；你可以手动选行动牌、建轨、选货物源和运输候选方案，同时用公共信息面板观察顺位、轨道库存、Goods Supply、玩家状态和日志。
+当前这个版本已经支持“1 真人 + 2 Bot”的基础版原型。默认由 `Alice` 作为真人玩家，`Bob` 和 `Carol` 由 Bot 托管；你可以手动选行动牌、建轨、选货物源和运输候选方案，同时用公共信息面板观察顺位、轨道库存、Goods Supply、玩家状态和日志。
 
 ## 环境
 
@@ -66,7 +66,7 @@ npm run smoke
 
 可以按这个顺序测：
 
-1. 先用 `Ada` 手动选择一张行动牌；如果轮到 Bot，就点“推进到我的回合”。
+1. 先用 `Alice` 手动选择一张行动牌；如果轮到 Bot，就点“推进到我的回合”。
 2. 进入建轨阶段后，先选轨道板，再点地图上的高亮 hex，然后在建轨工作台里选朝向并确认；需要时可以重置当前阶段。
 3. 进入货运阶段后，先选货物源，再选候选方案，并查看运输预览；如果没有合适方案，可以升级机车或跳过本轮。
 4. 切换回终端再跑一次 `npm test`、`npm run build` 和 `npm run smoke`，确认浏览器原型和命令行校验都没断。
@@ -96,3 +96,4 @@ steam-boardgame-replication/
 - [docs/notes/0404_Codex_Steam数字化实现方案.md](/Users/day/Desktop/书架/大三下/其他/steam-boardgame-replication/docs/notes/0404_Codex_Steam数字化实现方案.md)
 - [docs/notes/0404_Codex_Steam第一部分实现方案及日志.md](/Users/day/Desktop/书架/大三下/其他/steam-boardgame-replication/docs/notes/0404_Codex_Steam第一部分实现方案及日志.md)
 - [docs/notes/0405_Codex_Steam第二部分实现方案及日志.md](/Users/day/Desktop/书架/大三下/其他/steam-boardgame-replication/docs/notes/0405_Codex_Steam第二部分实现方案及日志.md)
+- [docs/notes/0405_Codex_Steam第三部分实现方案.md](/Users/day/Desktop/书架/大三下/其他/steam-boardgame-replication/docs/notes/0405_Codex_Steam第三部分实现方案.md)
