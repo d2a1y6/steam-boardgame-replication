@@ -3,24 +3,33 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "preview": "vite preview",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "smoke": "tsx scripts/smoke-playthrough.ts",
-    "check:tile-pool": "tsx scripts/check-tile-pool.ts"
-  },
-  "dependencies": {
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "dev": "npm run dev --workspace @steam/web",
+    "build": "npm run build --workspace @steam/game-content && npm run build --workspace @steam/game-core && npm run build --workspace @steam/web",
+    "preview": "npm run preview --workspace @steam/web",
+    "typecheck": "tsc -b tsconfig.json --pretty false",
+    "lint": "eslint apps packages tools --ext .ts,.tsx --max-warnings=0",
+    "check:deps": "depcruise --config .dependency-cruiser.cjs apps/web/src packages/game-core/src packages/game-content/src tools",
+    "depcruise": "npm run check:deps",
+    "test": "npm run test --workspace @steam/game-core && npm run test --workspace @steam/web",
+    "test:watch": "npm run test:watch --workspace @steam/web",
+    "check:boundaries": "tsx tools/check-import-boundaries.ts",
+    "smoke": "tsx tools/smoke/smoke-playthrough.ts",
+    "check:tile-pool": "tsx tools/data/check-tile-pool.ts",
+    "export:maps": "tsx tools/data/export-map-data.ts"
   },
   "devDependencies": {
+    "@typescript-eslint/parser": "^8.31.0",
     "@testing-library/react": "^16.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^5.0.0",
+    "dependency-cruiser": "^16.10.4",
+    "eslint": "^9.24.0",
     "jsdom": "^26.0.0",
     "tsx": "^4.20.0",
     "typescript": "^5.8.0",

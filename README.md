@@ -1,32 +1,46 @@
 # steam-boardgame-replication
 
-这个仓库用于数字化复现桌游《Steam》，目标是通过实现、测试和游玩来学习规则，而不是优先追求与实体版完全一致的视觉还原。当前版本已经进入第二部分：它是一个跑在本地浏览器 URL 里的单页程序，前端用 React 渲染基础版原型，规则状态保存在内存里的引擎会话中，由 `src/engine/`、`src/rules/`、`src/map/` 驱动。
+这个仓库用于数字化复现桌游《Steam》，目标是通过实现、测试和实际操作来学习规则，而不是优先追求与实体版完全一致的视觉还原。
+
+当前版本是一套跑在本地浏览器 URL 上的 TypeScript workspace。根目录的 `npm` 脚本负责调度整个工作区；`apps/web` 提供本地页面，`packages/game-core` 提供纯规则引擎，`packages/game-content` 提供地图、规则集和静态组件数据，`tools` 放命令行脚本、边界检查、git hook 和环境说明。
+
+当前这版已经支持基础版东北美洲地图的学习壳。默认由 `Alice` 作为真人玩家，`Bob` 和 `Carol` 由 Bot 托管；你可以在浏览器里手动选行动牌、建轨、选货物源和运输候选方案，同时查看规则解释、动作历史、回放和本地存档。
 
 ## 项目架构
 
-程序是一个本地开发用的浏览器应用。启动后，Vite 会在本机启动一个开发服务器，终端会打印地址，通常是 `http://localhost:5173`；浏览器入口是 [src/main.tsx](/Users/day/Desktop/书架/大三下/其他/steam-boardgame-replication/src/main.tsx)，页面主壳是 [src/ui/GameShell.tsx](/Users/day/Desktop/书架/大三下/其他/steam-boardgame-replication/src/ui/GameShell.tsx)，规则会话入口是 [src/engine/createGame.ts](/Users/day/Desktop/书架/大三下/其他/steam-boardgame-replication/src/engine/createGame.ts)。
+- `apps/web`：本地浏览器单页应用，`npm run dev` 后会在 `http://localhost:5173` 一类地址启动。
+- `packages/game-core`：不依赖浏览器环境的规则核心，负责状态、动作 handlers、查询、路径搜索、回放和带迁移链路的序列化。
+- `packages/game-content`：地图、行动牌、货物袋、tile manifest、规则集这类静态规则内容。
+- `tools`：工作区辅助脚本，包括 smoke、边界检查、依赖方向检查补充、地图导出、tile pool 检查、git hook 和 conda 环境文件。
+- `docs`：规则详解、总体设计、阶段实现日志和仓库重构文档。
 
-当前这个版本已经支持“1 真人 + 2 Bot”的基础版原型。默认由 `Alice` 作为真人玩家，`Bob` 和 `Carol` 由 Bot 托管；你可以手动选行动牌、建轨、选货物源和运输候选方案，同时用公共信息面板观察顺位、轨道库存、Goods Supply、玩家状态和日志。
+真正的程序入口现在是：
+
+- `apps/web/src/app/main.tsx`
+- `apps/web/src/app/providers/GameSessionProvider.tsx`
+- `apps/web/src/pages/game/GamePage.tsx`
+- `packages/game-core/src/index.ts`
+- `packages/game-content/src/index.ts`
 
 ## 环境
 
-默认环境是 `steam`，它是 `Anaconda` 环境，并由根目录的 [environment.yml](/Users/day/Desktop/书架/大三下/其他/steam-boardgame-replication/environment.yml) 描述。进入仓库后，默认使用：
+默认环境是 `steam`，环境文件在 `tools/python/environment.yml`。第一次进入仓库时执行：
 
 ```bash
-conda activate steam
-```
-
-如果是第一次进入这个仓库，先执行：
-
-```bash
-conda env create -f environment.yml
+conda env create -f tools/python/environment.yml
 conda activate steam
 npm install
 ```
 
-## 常用命令
+之后默认都在这个环境里运行：
 
-`npm` 是 Node.js 的包管理器，这个仓库用它来安装前端依赖，并把常用动作封装成 `npm run xxx` 命令。它被用作这个前端工程的启动器和脚本入口。
+```bash
+conda activate steam
+```
+
+## 如何使用
+
+`npm` 是这个工作区的统一命令入口；你在仓库根目录执行一次命令，根脚本会把它转发给相应的 app、package 或 tools 脚本。
 
 开发模式：
 
@@ -34,7 +48,7 @@ npm install
 npm run dev
 ```
 
-这会启动本地开发服务器，并把当前版本的演示页面挂到浏览器地址上，适合边改边看。
+这会启动 `apps/web` 的本地开发服务器，终端通常会打印 `http://localhost:5173` 一类地址；打开后就能进入当前版本的学习壳。
 
 运行测试：
 
@@ -42,7 +56,39 @@ npm run dev
 npm test
 ```
 
-这会运行 `tests/` 里的规则、工作流和页面壳测试，用来确认融资、建轨、运货、计分、Bot 和第二部分的人类主路径没有被改坏。
+这会依次运行 `packages/game-core` 的规则、工作流、不变量和迁移测试，以及 `apps/web` 的页面与本地存档测试。
+
+类型检查：
+
+```bash
+npm run typecheck
+```
+
+这会用工作区项目引用执行独立的 TypeScript 检查，先于构建暴露跨包类型问题。
+
+Lint 检查：
+
+```bash
+npm run lint
+```
+
+这会运行 `eslint` 的目录边界规则，检查 `apps/web` 是否越过包入口，以及 `game-core` / `game-content` 是否出现不允许的导入。
+
+依赖方向检查：
+
+```bash
+npm run check:deps
+```
+
+这会运行 `dependency-cruiser`，验证 `web -> core/content`、`core -> web`、`content -> web`、`core -> react` 这些依赖方向约束。
+
+检查边界：
+
+```bash
+npm run check:boundaries
+```
+
+这会用本地脚本补充检查 `apps/web` 是否越过 package 入口深层 import，以及 `packages/game-core` 是否误用了浏览器 API。
 
 检查构建：
 
@@ -50,7 +96,7 @@ npm test
 npm run build
 ```
 
-这会执行 TypeScript 类型检查并生成生产构建，用来确认当前代码至少能完整打包。
+这会依次对 `game-content`、`game-core`、`web` 做 TypeScript 构建检查，并最终打出浏览器版本。
 
 命令行 smoke 检查：
 
@@ -58,42 +104,43 @@ npm run build
 npm run smoke
 ```
 
-这会跑一个最小命令行演示流程，快速确认“创建一局并推进若干步”这条主路径还活着。
+这会运行一个最小命令行对局流程，快速确认“创建一局并读取基础状态”这条主路径仍然可用。
 
-## 如何测试当前版本
+## 当前版本怎么测
 
-先运行 `npm run dev`，打开终端打印出的本地 URL。
+先运行 `npm run dev`，再打开终端里给出的本地 URL。
 
-可以按这个顺序测：
+建议按这个顺序测试当前版本：
 
-1. 先用 `Alice` 手动选择一张行动牌；如果轮到 Bot，就点“推进到我的回合”。
-2. 进入建轨阶段后，先选轨道板，再点地图上的高亮 hex，然后在建轨工作台里选朝向并确认；需要时可以重置当前阶段。
-3. 进入货运阶段后，先选货物源，再选候选方案，并查看运输预览；如果没有合适方案，可以升级机车或跳过本轮。
-4. 切换回终端再跑一次 `npm test`、`npm run build` 和 `npm run smoke`，确认浏览器原型和命令行校验都没断。
+1. 在“新对局”面板里重开一局默认三人局。
+2. 在行动牌面板中为 `Alice` 选一张行动牌；若当前行动者是 Bot，就先点“推进到我的回合”。
+3. 进入建轨阶段后，先选轨道板，再点地图高亮 hex，最后在建轨工作台里选朝向并确认；如果想回到本阶段起点，可以重置草稿。
+4. 进入货运阶段后，先选货物源，再选候选方案，并观察运输预览、动作历史和规则解释是否一致。
+5. 任意时刻都可以保存对局，再从存档列表载入；也可以从回放时间线恢复到较早帧。
 
-优先看四处：页面上方的当前阶段、中间地图上的高亮与选中状态、右侧控制区的工作台、最右列的公共信息和日志。
+优先观察五块信息：页面顶部的当前阶段、地图中的高亮 hex 与路径、中间列的当前工作台、右侧的公共信息与规则解释，以及“动作历史 / 日志”。
 
 ## 仓库主干
 
-需要优先理解的业务入口有三处：`src/main.tsx`、`src/ui/GameShell.tsx`、`src/engine/createGame.ts`。
-
 ```text
 steam-boardgame-replication/
-├── docs/          # 规则资料、设计文档、实现日志
-├── scripts/       # smoke 脚本、数据检查、git hook
-├── src/           # 程序源码；浏览器入口、规则引擎、地图、Bot、UI 都在这里
-├── tests/         # 规则测试与第二部分主路径测试
-├── environment.yml
-├── package.json   # npm 脚本入口
-├── index.html     # 浏览器挂载页
-├── vite.config.ts # 本地开发服务器和构建配置
-└── README.md
+├── apps/
+│   └── web/                  # 本地浏览器应用
+├── packages/
+│   ├── game-core/            # 规则引擎、状态、回放、迁移化序列化
+│   └── game-content/         # 地图、规则集、静态规则数据
+├── tools/                    # smoke、边界检查、数据脚本、hook、环境文件
+├── docs/                     # 规则资料、设计方案、实现日志
+├── package.json              # 工作区脚本入口
+├── tsconfig.json             # 工作区 TypeScript 项目引用入口
+└── .github/workflows/        # CI 和 smoke workflow
 ```
 
-规则主来源是 [docs/references/rulebook_official.pdf](/Users/day/Desktop/书架/大三下/其他/steam-boardgame-replication/docs/references/rulebook_official.pdf)。当前最值得先读的文档是：
+规则主来源是 `docs/references/rulebook_official.pdf`。当前最值得先读的文档是：
 
-- [docs/notes/0404_Codex_Steam基础版规则详解.md](/Users/day/Desktop/书架/大三下/其他/steam-boardgame-replication/docs/notes/0404_Codex_Steam基础版规则详解.md)
-- [docs/notes/0404_Codex_Steam数字化实现方案.md](/Users/day/Desktop/书架/大三下/其他/steam-boardgame-replication/docs/notes/0404_Codex_Steam数字化实现方案.md)
-- [docs/notes/0404_Codex_Steam第一部分实现方案及日志.md](/Users/day/Desktop/书架/大三下/其他/steam-boardgame-replication/docs/notes/0404_Codex_Steam第一部分实现方案及日志.md)
-- [docs/notes/0405_Codex_Steam第二部分实现方案及日志.md](/Users/day/Desktop/书架/大三下/其他/steam-boardgame-replication/docs/notes/0405_Codex_Steam第二部分实现方案及日志.md)
-- [docs/notes/0405_Codex_Steam第三部分实现方案.md](/Users/day/Desktop/书架/大三下/其他/steam-boardgame-replication/docs/notes/0405_Codex_Steam第三部分实现方案.md)
+- `docs/notes/0404_Codex_Steam基础版规则详解.md`
+- `docs/notes/0404_Codex_Steam数字化实现方案.md`
+- `docs/notes/0404_Codex_Steam第一部分实现方案及日志.md`
+- `docs/notes/0405_Codex_Steam第二部分实现方案及日志.md`
+- `docs/notes/0405_Codex_Steam第三部分实现方案及日志.md`
+- `docs/notes/0405_Codex_仓库工业化重构方案.md`

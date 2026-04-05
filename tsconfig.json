@@ -2,10 +2,13 @@
   "files": [],
   "references": [
     {
-      "path": "./tsconfig.app.json"
+      "path": "./packages/game-content"
     },
     {
-      "path": "./tsconfig.node.json"
+      "path": "./packages/game-core"
+    },
+    {
+      "path": "./apps/web"
     }
   ]
 }

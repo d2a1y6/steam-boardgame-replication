@@ -1,0 +1,19 @@
+{
+  "name": "@steam/web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "dependencies": {
+    "@steam/game-content": "file:../../packages/game-content",
+    "@steam/game-core": "file:../../packages/game-core",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -p tsconfig.json && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  }
+}
