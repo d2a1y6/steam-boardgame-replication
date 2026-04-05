@@ -25,6 +25,7 @@ const panelStyle = {
   borderRadius: 12,
   minHeight: 0,
   overflow: "auto",
+  color: "#1f1a17",
 } as const;
 
 const titleStyle = {

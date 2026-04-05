@@ -37,6 +37,7 @@ const panelStyle = {
   background: "rgba(255,255,255,0.55)",
   padding: "10px 11px",
   borderRadius: 12,
+  color: "#1f1a17",
 } as const;
 
 const titleStyle = {

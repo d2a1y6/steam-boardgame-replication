@@ -208,36 +208,39 @@ function deliverGoods(state: GameState, action: Extract<GameAction, { type: "del
     return appendLog(state, "warning", "未找到合法运货方案。");
   }
 
-  const player = state.players.find((item) => item.id === action.playerId);
-  if (!player) {
+  const actingPlayer = state.players.find((item) => item.id === action.playerId);
+  if (!actingPlayer) {
     return appendLog(state, "warning", "找不到运货玩家。");
   }
 
-  const playerPoints = candidate.pointsByOwner[action.playerId] ?? 0;
-  const nextPlayer: PlayerState = {
+  const nextPlayers = state.players.map((player) => ({
     ...player,
-    victoryPoints: player.victoryPoints + playerPoints,
-  };
+    victoryPoints: player.victoryPoints + (candidate.pointsByOwner[player.id] ?? 0),
+  }));
 
-  const nextState = replacePlayer(
-    {
-      ...state,
-      map: {
-        ...state.map,
-        cityGoods: {
-          ...state.map.cityGoods,
-          [candidate.sourceHexId]: removeFirstCube(state.map.cityGoods[candidate.sourceHexId] ?? [], candidate.goodsColor),
-        },
+  const nextState: GameState = {
+    ...state,
+    players: nextPlayers,
+    map: {
+      ...state.map,
+      cityGoods: {
+        ...state.map.cityGoods,
+        [candidate.sourceHexId]: removeFirstCube(state.map.cityGoods[candidate.sourceHexId] ?? [], candidate.goodsColor),
       },
     },
-    action.playerId,
-    nextPlayer,
-  );
+  };
+
+  const payoutText = Object.entries(candidate.pointsByOwner)
+    .map(([ownerId, points]) => {
+      const playerName = nextPlayers.find((player) => player.id === ownerId)?.name ?? ownerId;
+      return `${playerName}+${points}`;
+    })
+    .join("，");
 
   return appendLog(
     nextState,
     "action",
-    `${player.name} 将 ${candidate.goodsColor} 货物从 ${candidate.sourceHexId} 运到 ${candidate.destinationHexId}，获得 ${playerPoints} 分。`,
+    `${actingPlayer.name} 将 ${candidate.goodsColor} 货物从 ${candidate.sourceHexId} 运到 ${candidate.destinationHexId}。${payoutText ? ` 线路得分：${payoutText}。` : ""}`,
   );
 }
 

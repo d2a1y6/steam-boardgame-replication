@@ -1,25 +1,26 @@
 /**
- * 功能概述：展示当前阶段摘要，并提供演示局推进、草稿提交和重置入口。
+ * 功能概述：展示当前阶段摘要，并承接少量全局控制按钮。
  * 输入输出：输入阶段摘要和回调；输出阶段面板。
- * 处理流程：把当前回合、阶段、行动者和操作按钮集中展示。
+ * 处理流程：把当前回合、阶段、行动者和全局控制按钮集中展示。
  */
 
 import type { PlayerState } from "../state/gameState";
 
+export interface PhaseControl {
+  readonly id: string;
+  readonly label: string;
+  readonly disabled?: boolean;
+  readonly onClick: () => void;
+}
+
 export function PhasePanel({
   summary,
   notice,
-  onStep,
-  onPlayMany,
-  onCommit,
-  onReset,
+  controls,
 }: {
   summary: { currentPlayer: PlayerState | null; phase: string; round: number; actionLabel?: string };
   notice: string;
-  onStep: () => void;
-  onPlayMany: () => void;
-  onCommit: () => void;
-  onReset: () => void;
+  controls: readonly PhaseControl[];
 }) {
   return (
     <section style={panelStyle}>
@@ -32,10 +33,17 @@ export function PhasePanel({
       </div>
       <p style={noticeStyle}>{notice}</p>
       <div style={buttonGridStyle}>
-        <button style={buttonStyle} onClick={onStep}>自动执行一步</button>
-        <button style={buttonStyle} onClick={onPlayMany}>自动执行十步</button>
-        <button style={buttonStyle} onClick={onCommit}>提交草稿</button>
-        <button style={buttonStyle} onClick={onReset}>重置阶段</button>
+        {controls.map((control) => (
+          <button
+            key={control.id}
+            style={buttonStyle}
+            type="button"
+            onClick={control.onClick}
+            disabled={control.disabled}
+          >
+            {control.label}
+          </button>
+        ))}
       </div>
     </section>
   );
@@ -45,6 +53,7 @@ const panelStyle = {
   background: "rgba(255,255,255,0.55)",
   padding: "10px 11px",
   borderRadius: 12,
+  color: "#1f1a17",
 } as const;
 
 const titleStyle = {
