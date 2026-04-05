@@ -10,10 +10,11 @@ export const standardRuleSet: RuleSet = {
   mode: "standard",
   phaseOrder: [
     "buy-capital",
-    "determine-order",
+    "auction-turn-order",
     "select-action",
     "build-track",
-    "move-goods",
+    "move-goods-round-1",
+    "move-goods-round-2",
     "income",
     "set-up-next-turn",
   ],

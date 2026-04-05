@@ -57,21 +57,68 @@ export class RandomBot implements Bot {
 
   getMove(game: GameState, playerId: string): GameAction | null {
     switch (game.turn.phase) {
+      case "buy-capital":
+        return { type: "buy-capital", playerId, steps: 2 };
+      case "auction-turn-order": {
+        const auctionState = game.turn.auctionState;
+        const player = game.players.find((item) => item.id === playerId);
+        if (!auctionState || !player) {
+          return { type: "pass-auction", playerId };
+        }
+        const minimumBid = Math.max(0, auctionState.currentBid + 1);
+        if (minimumBid <= player.cash && this.random() > 0.4) {
+          return { type: "place-auction-bid", playerId, bid: minimumBid };
+        }
+        return { type: "pass-auction", playerId };
+      }
       case "select-action": {
         const taken = new Set(Object.values(game.turn.selectedActionTiles).filter(Boolean));
         const tile = pickRandom(
           game.content.actionTiles.filter((item) => !taken.has(item.id)),
           this.random,
         );
-        return tile ? { type: "select-action-tile", playerId, tileId: tile.id } : null;
+        return tile
+          ? {
+              type: "select-action-tile",
+              playerId,
+              tileId: tile.id,
+              usePassOption: tile.hasPassOption ? this.random() > 0.7 : false,
+            }
+          : null;
       }
       case "build-track": {
+        const pendingBuildAction = game.turn.pendingBuildActions?.[playerId] ?? null;
+        if (pendingBuildAction === "city-growth") {
+          const targetCity = game.map.definition.hexes.find(
+            (hex) => hex.terrain === "city" && !game.map.cityGrowthMarkers.includes(hex.id),
+          );
+          const supplyGroup = game.supply.goodsSupply.find((group) => group.cubes.length > 0);
+          return targetCity && supplyGroup
+            ? { type: "perform-city-growth", playerId, cityHexId: targetCity.id, supplyGroupId: supplyGroup.id }
+            : { type: "finish-build", playerId };
+        }
+        if (pendingBuildAction === "urbanization") {
+          const targetTown = game.map.definition.hexes.find((hex) => hex.isTown);
+          const newCityColor = game.supply.newCityTiles[0];
+          const supplyGroup = game.supply.goodsSupply.find((group) => group.cubes.length > 0);
+          return targetTown && newCityColor && supplyGroup
+            ? {
+                type: "perform-urbanization",
+                playerId,
+                townHexId: targetTown.id,
+                newCityColor,
+                supplyGroupId: supplyGroup.id,
+              }
+            : { type: "finish-build", playerId };
+        }
         if (game.turn.buildAllowanceRemaining <= 0) {
           return { type: "finish-build", playerId };
         }
         const placement = pickRandom(buildTrackCandidates(game, playerId), this.random);
         return placement ?? { type: "finish-build", playerId };
       }
+      case "resolve-delivery":
+        return { type: "choose-track-points-destination", playerId, destination: this.random() > 0.5 ? "income" : "victory-points" };
       case "move-goods-round-1":
       case "move-goods-round-2": {
         const candidates = getDeliveryCandidates(game, playerId);

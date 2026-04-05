@@ -13,6 +13,7 @@ export interface SelectableActionTileView {
   readonly value: number;
   readonly disabled: boolean;
   readonly selectedByPlayerId: string | null;
+  readonly hasPassOption: boolean;
 }
 
 /**
@@ -31,6 +32,7 @@ export function getSelectableActionTiles(session: EngineSession): SelectableActi
       value: tile.value,
       disabled: Boolean(selectedByEntry),
       selectedByPlayerId: selectedByEntry?.[0] ?? null,
+      hasPassOption: tile.hasPassOption,
     };
   });
 }

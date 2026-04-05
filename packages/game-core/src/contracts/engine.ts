@@ -14,6 +14,7 @@ export interface GameSetupConfig {
   readonly mapId: string;
   readonly playerCount: number;
   readonly humanPlayerIndex: number;
+  readonly seed?: number;
 }
 
 export interface SessionActionRecord {

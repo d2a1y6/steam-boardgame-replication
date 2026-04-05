@@ -45,13 +45,20 @@ export function placeTrackInDraft(
     return appendLog(state, "warning", placementCheck.reason ?? "建轨失败。");
   }
 
-  const paid = ensureCashForImmediateCost(player, placementCheck.cost);
+  const paid = ensureCashForImmediateCost(player, placementCheck.cost, state.ruleset.canRaiseMoneyDuringTurn);
+  if (!paid.ok) {
+    return appendLog(state, "warning", paid.reason ?? "当前无法支付建轨费用。");
+  }
+  const replacedTrack = placementCheck.replacedTrackId
+    ? state.map.trackPieces.find((track) => track.id === placementCheck.replacedTrackId) ?? null
+    : null;
   const nextTrack: TrackPieceState = {
-    id: `track-${state.map.trackPieces.length + 1}`,
+    id: replacedTrack?.id ?? `track-${state.map.trackPieces.length + 1}`,
     hexId: action.hexId,
     tileId: action.tileId,
-    ownerId: action.playerId,
+    ownerId: replacedTrack?.ownerId ?? action.playerId,
     rotation: action.rotation,
+    segmentOwners: placementCheck.nextSegmentOwners,
   };
 
   let nextState: GameState = replacePlayer(state, action.playerId, paid.player);
@@ -59,11 +66,21 @@ export function placeTrackInDraft(
     ...nextState,
     map: {
       ...nextState.map,
-      trackPieces: [...nextState.map.trackPieces, nextTrack],
+      trackPieces: replacedTrack
+        ? [...nextState.map.trackPieces.filter((track) => track.id !== replacedTrack.id), nextTrack]
+        : [...nextState.map.trackPieces, nextTrack],
     },
     supply: {
       ...nextState.supply,
-      tilePool: takeTile(nextState.supply.tilePool, action.tileId),
+      tilePool: replacedTrack
+        ? {
+            ...takeTile(nextState.supply.tilePool, action.tileId),
+            counts: {
+              ...takeTile(nextState.supply.tilePool, action.tileId).counts,
+              [replacedTrack.tileId]: (nextState.supply.tilePool.counts[replacedTrack.tileId] ?? 0) + 1,
+            },
+          }
+        : takeTile(nextState.supply.tilePool, action.tileId),
     },
     turn: {
       ...nextState.turn,
@@ -76,23 +93,43 @@ export function placeTrackInDraft(
     map: rebuildTrackOwnership(nextState.map, nextState.content.tileManifest),
   };
 
-  if (placementCheck.startsNewLink && nextState.map.segments.length > 0) {
-    const lastSegment = nextState.map.segments[nextState.map.segments.length - 1]!;
+  const anchorSegment =
+    [...nextState.map.segments]
+      .reverse()
+      .find((segment) => segment.trackId === nextTrack.id && segment.ownerId === action.playerId)
+    ?? null;
+  if (placementCheck.startsNewLink && anchorSegment) {
     nextState = {
       ...nextState,
       map: rebuildTrackOwnership(
         {
           ...nextState.map,
-          anchors: addAnchor(nextState.map.anchors, action.playerId, lastSegment.id),
+          anchors: addAnchor(nextState.map.anchors, action.playerId, anchorSegment.id),
         },
         nextState.content.tileManifest,
       ),
     };
   }
 
+  if (placementCheck.operation === "redirect" && replacedTrack) {
+    const redirectedLink = nextState.map.links.find((link) => link.segmentIds.some((segmentId) => segmentId.startsWith(`${nextTrack.id}:`))) ?? null;
+    if (redirectedLink && redirectedLink.complete && redirectedLink.ownerId == null && anchorSegment) {
+      nextState = {
+        ...nextState,
+        map: rebuildTrackOwnership(
+          {
+            ...nextState.map,
+            anchors: addAnchor(nextState.map.anchors, action.playerId, anchorSegment.id),
+          },
+          nextState.content.tileManifest,
+        ),
+      };
+    }
+  }
+
   return appendLog(
     nextState,
     "action",
-    `${player.name} 在 ${action.hexId} 铺设了 ${action.tileId}，费用 ${placementCheck.cost}。`,
+    `${player.name} 在 ${action.hexId}${placementCheck.operation === "redirect" ? " 重定向" : placementCheck.operation === "improve" ? " 升级" : " 铺设"}了 ${action.tileId}，费用 ${placementCheck.cost}。`,
   );
 }

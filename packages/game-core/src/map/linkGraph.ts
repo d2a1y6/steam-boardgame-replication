@@ -20,6 +20,7 @@ function segmentTouches(
 ) {
   const neighbors = new Set<string>();
   const touchedStops = new Set<string>();
+  const graph = createMapGraph({ id: "temp", name: "temp", hexes: Object.values(mapById) });
 
   for (const endpoint of segment.endpoints) {
     const currentHex = mapById[endpoint.hexId];
@@ -27,23 +28,47 @@ function segmentTouches(
       continue;
     }
 
+    if (endpoint.edge === "town" && currentHex.isTown) {
+      touchedStops.add(currentHex.id);
+    }
+
     for (const candidate of allSegments) {
       if (candidate.id === segment.id) {
+        continue;
+      }
+      const sharesTown = candidate.endpoints.some(
+        (candidateEndpoint) =>
+          candidateEndpoint.hexId === endpoint.hexId
+          && candidateEndpoint.edge === "town"
+          && endpoint.edge === "town"
+          && currentHex.isTown,
+      );
+      if (sharesTown) {
+        neighbors.add(candidate.id);
+        continue;
+      }
+      if (endpoint.edge === "town") {
         continue;
       }
       const matches = candidate.endpoints.some(
         (candidateEndpoint) =>
           candidateEndpoint.hexId !== endpoint.hexId &&
+          candidateEndpoint.edge !== "town" &&
+          endpoint.edge !== "town" &&
           candidateEndpoint.edge === oppositeEdge(endpoint.edge) &&
           mapById[candidateEndpoint.hexId] &&
-          getNeighborHex(createMapGraph({ id: "temp", name: "temp", hexes: Object.values(mapById) }), currentHex, endpoint.edge)?.id === candidateEndpoint.hexId,
+          getNeighborHex(graph, currentHex, endpoint.edge)?.id === candidateEndpoint.hexId,
       );
       if (matches) {
         neighbors.add(candidate.id);
       }
     }
 
-    const neighborHex = getNeighborHex(createMapGraph({ id: "temp", name: "temp", hexes: Object.values(mapById) }), currentHex, endpoint.edge);
+    if (endpoint.edge === "town") {
+      continue;
+    }
+
+    const neighborHex = getNeighborHex(graph, currentHex, endpoint.edge);
     if (isStopHex(neighborHex)) {
       touchedStops.add(neighborHex!.id);
     }

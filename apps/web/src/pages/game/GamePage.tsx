@@ -11,25 +11,32 @@ import {
   getMovableGoodsSources,
   getRankedDeliveryCandidatesForSource,
   getRuleExplanation,
+  getSelectableActionTiles,
   getTilePoolSummary,
   getTrackPaletteOptions,
   getTrackPlacementOptions,
   getTrackPlacementPreview,
   getTurnOrderEntries,
   type ActionTileId,
+  type GoodsColor,
 } from "@steam/game-core";
-import { useGameSession } from "../../app/providers/GameSessionProvider";
+import { useGameSession, WEB_MAP_OPTIONS } from "../../app/providers/GameSessionProvider";
 import { GameSetupPanel } from "../../features/game-setup/GameSetupPanel";
 import { ActionTilePanel } from "../../features/session-control/ActionTilePanel";
+import { AuctionPanel } from "../../features/session-control/AuctionPanel";
+import { BuyCapitalPanel } from "../../features/session-control/BuyCapitalPanel";
 import { PhasePanel, type PhaseControl } from "../../features/session-control/PhasePanel";
 import { TurnOrderPanel } from "../../features/session-control/TurnOrderPanel";
 import { useSessionCommands } from "../../features/session-control/useSessionCommands";
+import { CityGrowthPanel } from "../../features/board/CityGrowthPanel";
 import { MapBoard } from "../../features/board/MapBoard";
 import { TrackPalettePanel } from "../../features/board/TrackPalettePanel";
 import { TrackPlacementPanel } from "../../features/board/TrackPlacementPanel";
+import { UrbanizationPanel } from "../../features/board/UrbanizationPanel";
 import { DeliveryCandidatePanel } from "../../features/delivery/DeliveryCandidatePanel";
 import { DeliveryPreview } from "../../features/delivery/DeliveryPreview";
 import { DeliverySourcePanel } from "../../features/delivery/DeliverySourcePanel";
+import { TrackPointChoicePanel } from "../../features/delivery/TrackPointChoicePanel";
 import { PlayerPanel } from "../../features/players/PlayerPanel";
 import { ActionHistoryPanel } from "../../features/logs/ActionHistoryPanel";
 import { LogPanel } from "../../features/logs/LogPanel";
@@ -100,23 +107,43 @@ export function GamePage() {
     setSelectedCandidateId(null);
   }, [game.turn.phase, currentPlayer.id]);
 
-  const actionTiles = session.committed.content.actionTiles.map((tile) => {
-    const selectedByEntry = Object.entries(game.turn.selectedActionTiles).find(([, selected]) => selected === tile.id);
-    return {
-      tileId: tile.id,
-      label: tile.label,
-      value: tile.value,
-      disabled: Boolean(selectedByEntry),
-      selectedByPlayerId: selectedByEntry?.[0] ?? null,
-    };
-  });
+  const actionTiles = getSelectableActionTiles(session);
   const trackPalette = getTrackPaletteOptions(session);
   const tilePoolSummary = getTilePoolSummary(session);
   const turnOrderEntries = getTurnOrderEntries(session);
   const movableSources = isHumanTurn ? getMovableGoodsSources(session, humanPlayerId) : [];
+  const pendingBuildAction = game.turn.pendingBuildActions?.[humanPlayerId] ?? null;
+  const pendingDeliveryResolution = game.turn.pendingDeliveryResolution;
+  const auctionState = game.turn.auctionState;
+  const goodsSupplyOptions = game.supply.goodsSupply
+    .filter((group) => group.cubes.length > 0)
+    .map((group) => ({
+      id: group.id,
+      label: `${group.id}：${group.cubes.join(" / ")}`,
+    }));
+  const cityGrowthTargets = game.map.definition.hexes
+    .filter((hex) => hex.terrain === "city" && !game.map.cityGrowthMarkers.includes(hex.id))
+    .map((hex) => ({
+      id: hex.id,
+      label: hex.label ?? hex.id,
+    }));
+  const urbanizationTowns = game.map.definition.hexes
+    .filter((hex) => hex.isTown)
+    .map((hex) => ({
+      id: hex.id,
+      label: hex.label ?? hex.id,
+    }));
+  const urbanizationColors = [...new Set(game.supply.newCityTiles)].map((color) => ({
+    id: color,
+    label: color,
+  }));
+  const pendingTrackPointChoice = pendingDeliveryResolution?.queue[0] ?? null;
+  const pendingTrackPointPlayer = pendingTrackPointChoice
+    ? game.players.find((player) => player.id === pendingTrackPointChoice.playerId) ?? null
+    : null;
 
   const buildableHexIds =
-    isHumanTurn && game.turn.phase === "build-track" && selectedTrackTileId
+    isHumanTurn && game.turn.phase === "build-track" && selectedTrackTileId && pendingBuildAction == null
       ? getBuildableHexIds(session, humanPlayerId, selectedTrackTileId)
       : [];
 
@@ -157,12 +184,16 @@ export function GamePage() {
   const highlightedHexIds =
     game.turn.phase === "move-goods-round-1" || game.turn.phase === "move-goods-round-2"
       ? selectedCandidate?.pathStopIds ?? (sourceKey ? [sourceKey.sourceHexId] : [])
-      : selectedBuildHexId
-        ? [selectedBuildHexId]
-        : [];
+      : pendingBuildAction === "city-growth"
+        ? cityGrowthTargets.map((city) => city.id)
+        : pendingBuildAction === "urbanization"
+          ? urbanizationTowns.map((town) => town.id)
+          : selectedBuildHexId
+            ? [selectedBuildHexId]
+            : [];
 
   const clickableHexIds =
-    isHumanTurn && game.turn.phase === "build-track"
+    isHumanTurn && game.turn.phase === "build-track" && pendingBuildAction == null
       ? buildableHexIds
       : isHumanTurn && (game.turn.phase === "move-goods-round-1" || game.turn.phase === "move-goods-round-2")
         ? movableSources.map((source) => source.sourceHexId)
@@ -197,8 +228,8 @@ export function GamePage() {
     restoreReplayFrameById(frameId);
   }
 
-  function handleSelectActionTile(tileId: string) {
-    commands.selectActionTile(tileId as ActionTileId);
+  function handleSelectActionTile(tileId: string, usePassOption = false) {
+    commands.selectActionTile(tileId as ActionTileId, usePassOption);
   }
 
   function handleConfirmTrack() {
@@ -251,6 +282,30 @@ export function GamePage() {
 
   function handlePassMove() {
     commands.passMove();
+  }
+
+  function handleChooseTrackPointsDestination(destination: "income" | "victory-points") {
+    commands.chooseTrackPointsDestination(destination);
+  }
+
+  function handleCityGrowth(cityHexId: string, supplyGroupId: string) {
+    commands.performCityGrowth(cityHexId, supplyGroupId);
+  }
+
+  function handleUrbanization(townHexId: string, newCityColor: string, supplyGroupId: string) {
+    commands.performUrbanization(townHexId, newCityColor as GoodsColor, supplyGroupId);
+  }
+
+  function handleBuyCapital(steps: number) {
+    commands.buyCapital(steps);
+  }
+
+  function handlePlaceAuctionBid(bid: number) {
+    commands.placeAuctionBid(bid);
+  }
+
+  function handlePassAuction() {
+    commands.passAuction();
   }
 
   function handleMapHexClick(hexId: string) {
@@ -310,7 +365,7 @@ export function GamePage() {
         <div>
           <div style={eyebrowStyle}>Steam / 第三部分工作壳</div>
           <h1 style={titleStyle}>Steam 规则学习壳</h1>
-          <p style={subtitleStyle}>当前页面已加入新对局设置、结构化规则解释、本地存档、回放时间线和显式动作历史。</p>
+          <p style={subtitleStyle}>当前页面已接通基础版与标准版入口、结构化规则解释、本地存档、回放时间线和显式动作历史。</p>
         </div>
         <div style={statusStyle}>{phaseSummary.phaseLabel}</div>
       </header>
@@ -329,8 +384,12 @@ export function GamePage() {
         <aside style={controlColumnStyle}>
           <GameSetupPanel
             setup={setup}
+            mapOptions={WEB_MAP_OPTIONS}
+            onModeChange={(mode) => setSetup((current) => ({ ...current, mode }))}
+            onMapChange={(mapId) => setSetup((current) => ({ ...current, mapId }))}
             onPlayerCountChange={(playerCount) => setSetup((current) => ({ ...current, playerCount }))}
             onNameOffsetChange={(nameOffset) => setSetup((current) => ({ ...current, nameOffset }))}
+            onSeedChange={(seed) => setSetup((current) => ({ ...current, seed }))}
             onCreate={handleCreateNewGame}
           />
           <PhasePanel
@@ -354,24 +413,65 @@ export function GamePage() {
             />
           ) : null}
 
+          {isHumanTurn && game.turn.phase === "buy-capital" ? (
+            <BuyCapitalPanel playerName={currentPlayer.name} onConfirm={handleBuyCapital} />
+          ) : null}
+
+          {isHumanTurn && game.turn.phase === "auction-turn-order" && auctionState ? (
+            <AuctionPanel
+              playerName={currentPlayer.name}
+              currentBid={auctionState.currentBid}
+              onBid={handlePlaceAuctionBid}
+              onPass={handlePassAuction}
+            />
+          ) : null}
+
           {isHumanTurn && game.turn.phase === "build-track" ? (
             <>
-              <TrackPalettePanel
-                items={trackPalette}
-                selectedTileId={selectedTrackTileId}
-                onSelect={setSelectedTrackTileId}
-              />
-              <TrackPlacementPanel
-                selectedHexId={selectedBuildHexId}
-                placementOptions={placementOptions}
-                selectedRotation={effectiveRotation}
-                preview={trackPreview}
-                onSelectRotation={setSelectedRotation}
-                onConfirm={handleConfirmTrack}
-                onFinishBuild={handleFinishBuild}
-                onReset={handleResetBuild}
-              />
+              {pendingBuildAction === "city-growth" ? (
+                <CityGrowthPanel
+                  cities={cityGrowthTargets}
+                  supplyGroups={goodsSupplyOptions}
+                  onConfirm={handleCityGrowth}
+                />
+              ) : null}
+              {pendingBuildAction === "urbanization" ? (
+                <UrbanizationPanel
+                  towns={urbanizationTowns}
+                  colors={urbanizationColors}
+                  supplyGroups={goodsSupplyOptions}
+                  onConfirm={handleUrbanization}
+                />
+              ) : null}
+              {pendingBuildAction == null ? (
+                <>
+                  <TrackPalettePanel
+                    items={trackPalette}
+                    selectedTileId={selectedTrackTileId}
+                    onSelect={setSelectedTrackTileId}
+                  />
+                  <TrackPlacementPanel
+                    selectedHexId={selectedBuildHexId}
+                    placementOptions={placementOptions}
+                    selectedRotation={effectiveRotation}
+                    preview={trackPreview}
+                    onSelectRotation={setSelectedRotation}
+                    onConfirm={handleConfirmTrack}
+                    onFinishBuild={handleFinishBuild}
+                    onReset={handleResetBuild}
+                  />
+                </>
+              ) : null}
             </>
+          ) : null}
+
+          {isHumanTurn && game.turn.phase === "resolve-delivery" && pendingTrackPointChoice && pendingTrackPointPlayer ? (
+            <TrackPointChoicePanel
+              playerName={pendingTrackPointPlayer.name}
+              points={pendingTrackPointChoice.points}
+              onChooseIncome={() => handleChooseTrackPointsDestination("income")}
+              onChooseVictoryPoints={() => handleChooseTrackPointsDestination("victory-points")}
+            />
           ) : null}
 
           {isHumanTurn && (game.turn.phase === "move-goods-round-1" || game.turn.phase === "move-goods-round-2") ? (

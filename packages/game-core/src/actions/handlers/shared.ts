@@ -29,17 +29,29 @@ export function appendLog(state: GameState, kind: GameLogEntry["kind"], message:
 export function summarizeAction(action: GameAction): string {
   switch (action.type) {
     case "select-action-tile":
-      return `${action.playerId} 选择行动牌 ${action.tileId}`;
+      return `${action.playerId} 选择行动牌 ${action.tileId}${action.usePassOption ? "（Pass）" : ""}`;
+    case "perform-city-growth":
+      return `${action.playerId} 对 ${action.cityHexId} 执行 City Growth`;
+    case "perform-urbanization":
+      return `${action.playerId} 在 ${action.townHexId} 执行 Urbanization`;
     case "place-track":
       return `${action.playerId} 在 ${action.hexId} 铺设 ${action.tileId}（旋转 ${action.rotation}）`;
     case "finish-build":
       return `${action.playerId} 结束建轨`;
     case "deliver-goods":
       return `${action.playerId} 执行运输候选 ${action.candidateId}`;
+    case "choose-track-points-destination":
+      return `${action.playerId} 选择将线路分加到${action.destination === "income" ? "收入" : "胜利点"}`;
     case "upgrade-locomotive":
       return `${action.playerId} 升级机车`;
     case "pass-move":
       return `${action.playerId} 跳过当前货运轮次`;
+    case "buy-capital":
+      return `${action.playerId} 购买资本 ${action.steps * 5}`;
+    case "place-auction-bid":
+      return `${action.playerId} 竞拍出价 ${action.bid}`;
+    case "pass-auction":
+      return `${action.playerId} 在竞拍中选择 pass`;
     case "resolve-income":
       return `${action.playerId} 结算收入`;
     case "advance-turn-order":
@@ -52,6 +64,12 @@ export function summarizeAction(action: GameAction): string {
 export function getActiveOrder(state: GameState): string[] {
   if (state.turn.phase === "build-track" && state.turn.buildOrder.length > 0) {
     return state.turn.buildOrder;
+  }
+  if (
+    (state.turn.phase === "move-goods-round-1" || state.turn.phase === "move-goods-round-2" || state.turn.phase === "resolve-delivery")
+    && state.turn.moveOrder?.length
+  ) {
+    return state.turn.moveOrder;
   }
   return state.turn.turnOrder;
 }
@@ -121,12 +139,13 @@ export function withOutOfTurnWarning(session: EngineSession, playerId: string): 
 
 export function advancePlayerInBuildPhase(state: GameState): GameState {
   if (state.turn.currentPlayerIndex < getActiveOrder(state).length - 1) {
+    const nextPlayerId = getActiveOrder(state)[state.turn.currentPlayerIndex + 1]!;
     return {
       ...state,
       turn: {
         ...state.turn,
         currentPlayerIndex: state.turn.currentPlayerIndex + 1,
-        buildAllowanceRemaining: 3,
+        buildAllowanceRemaining: state.turn.selectedActionTiles[nextPlayerId] === "engineer" ? 4 : 3,
       },
     };
   }

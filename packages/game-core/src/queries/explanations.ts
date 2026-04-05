@@ -82,9 +82,41 @@ export function getRuleExplanation(options: {
   }
 
   if (state.turn.phase === "build-track") {
+    const activePlayerId = state.turn.buildOrder[state.turn.currentPlayerIndex] ?? state.turn.turnOrder[state.turn.currentPlayerIndex] ?? null;
+    const pendingBuildAction = activePlayerId ? state.turn.pendingBuildActions?.[activePlayerId] ?? null : null;
+    if (pendingBuildAction === "city-growth") {
+      return {
+        title: reason("CITY_GROWTH_TITLE"),
+        body: reason("CITY_GROWTH_BODY"),
+        detail: reason("NOTICE_TEXT", { text: options.notice }),
+      };
+    }
+    if (pendingBuildAction === "urbanization") {
+      return {
+        title: reason("URBANIZATION_TITLE"),
+        body: reason("URBANIZATION_BODY"),
+        detail: reason("NOTICE_TEXT", { text: options.notice }),
+      };
+    }
     return {
       title: reason("BUILD_TRACK_TITLE"),
       body: reason("BUILD_TRACK_BODY"),
+      detail: reason("NOTICE_TEXT", { text: options.notice }),
+    };
+  }
+
+  if (state.turn.phase === "buy-capital") {
+    return {
+      title: reason("BUY_CAPITAL_TITLE"),
+      body: reason("BUY_CAPITAL_BODY"),
+      detail: reason("NOTICE_TEXT", { text: options.notice }),
+    };
+  }
+
+  if (state.turn.phase === "auction-turn-order") {
+    return {
+      title: reason("STANDARD_AUCTION_TITLE"),
+      body: reason("STANDARD_AUCTION_BODY"),
       detail: reason("NOTICE_TEXT", { text: options.notice }),
     };
   }
@@ -93,6 +125,17 @@ export function getRuleExplanation(options: {
     return {
       title: reason("MOVE_GOODS_TITLE"),
       body: reason("MOVE_GOODS_BODY"),
+      detail: reason("NOTICE_TEXT", { text: options.notice }),
+    };
+  }
+
+  if (state.turn.phase === "resolve-delivery") {
+    const currentChoice = state.turn.pendingDeliveryResolution?.queue[0] ?? null;
+    return {
+      title: reason("TRACK_POINT_CHOICE_TITLE"),
+      body: reason("TRACK_POINT_CHOICE_BODY", {
+        points: currentChoice?.points ?? 0,
+      }),
       detail: reason("NOTICE_TEXT", { text: options.notice }),
     };
   }

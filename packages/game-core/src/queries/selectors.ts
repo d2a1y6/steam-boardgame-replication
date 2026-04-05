@@ -12,10 +12,13 @@ import { getDeliveryCandidates } from "../rules/goodsDelivery";
 import { rankDeliveryCandidates } from "../rules/routeRanking";
 
 const PHASE_LABELS: Record<string, string> = {
+  "buy-capital": "买资本",
+  "auction-turn-order": "标准版竞拍顺位",
   "select-action": "选择行动牌",
   "build-track": "建轨阶段",
   "move-goods-round-1": "货运阶段 1",
   "move-goods-round-2": "货运阶段 2",
+  "resolve-delivery": "分配线路分",
   income: "收入结算",
   "determine-order": "确认顺位",
   "set-up-next-turn": "准备下一回合",
@@ -29,6 +32,12 @@ function selectedTileLabel(state: GameState, tileId: string | null): string | un
 function currentOrder(state: GameState): string[] {
   if (state.turn.phase === "build-track" && state.turn.buildOrder.length > 0) {
     return state.turn.buildOrder;
+  }
+  if (
+    (state.turn.phase === "move-goods-round-1" || state.turn.phase === "move-goods-round-2" || state.turn.phase === "resolve-delivery")
+    && state.turn.moveOrder?.length
+  ) {
+    return state.turn.moveOrder;
   }
   return state.turn.turnOrder;
 }
@@ -63,6 +72,31 @@ export function selectActionOptions(session: EngineSession): readonly ActionOpti
   const state = getWorkingState(session);
   const options: ActionOption[] = [];
 
+  if (state.turn.phase === "buy-capital") {
+    options.push({
+      id: "buy-capital",
+      label: "买资本",
+      description: "标准版开局阶段，先倒退收入轨换取现金。",
+    });
+    return options;
+  }
+
+  if (state.turn.phase === "auction-turn-order") {
+    options.push(
+      {
+        id: "place-auction-bid",
+        label: "出价",
+        description: "标准版每回合按现金竞拍本回合顺位。",
+      },
+      {
+        id: "pass-auction",
+        label: "Pass",
+        description: "标准版竞拍中选择退出并落到当前最后可用位置。",
+      },
+    );
+    return options;
+  }
+
   if (state.turn.phase === "select-action") {
     for (const tile of state.content.actionTiles) {
       options.push({
@@ -76,6 +110,22 @@ export function selectActionOptions(session: EngineSession): readonly ActionOpti
   }
 
   if (state.turn.phase === "build-track") {
+    const activePlayerId = currentOrder(state)[state.turn.currentPlayerIndex] ?? null;
+    const pendingBuildAction = activePlayerId ? state.turn.pendingBuildActions?.[activePlayerId] ?? null : null;
+    if (pendingBuildAction === "city-growth") {
+      options.push({
+        id: "perform-city-growth",
+        label: "执行 City Growth",
+        description: "从一个 Goods Supply 拿整组 cubes 放到一个还没放 marker 的城市。",
+      });
+    }
+    if (pendingBuildAction === "urbanization") {
+      options.push({
+        id: "perform-urbanization",
+        label: "执行 Urbanization",
+        description: "把一个 town 升级成新城市，并放入一整组 goods。",
+      });
+    }
     options.push(
       { id: "place-track", label: "铺轨", description: "在合法六边格上放置轨道板" },
       { id: "upgrade-locomotive", label: "升级机车", description: "提高机车等级" },
@@ -84,11 +134,19 @@ export function selectActionOptions(session: EngineSession): readonly ActionOpti
     return options;
   }
 
+  if (state.turn.phase === "resolve-delivery") {
+    options.push({
+      id: "choose-track-points-destination",
+      label: "分配线路分",
+      description: "把这次交付得到的全部线路分加到收入或胜利点。",
+    });
+    return options;
+  }
+
   if (state.turn.phase === "move-goods-round-1" || state.turn.phase === "move-goods-round-2") {
     options.push(
       { id: "deliver-goods", label: "运货", description: "选择一条合法运输方案" },
       { id: "pass-move", label: "跳过", description: "本轮不运货" },
-      { id: "resolve-income", label: "结束货运阶段", description: "结算收入并进入下一阶段" },
     );
     return options;
   }

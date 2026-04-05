@@ -1,13 +1,12 @@
 /**
- * 功能概述：处理货运阶段的运货、机车升级与跳过动作。
+ * 功能概述：处理货运阶段的运输、免费机车升级、放弃行动与线路分分配。
  * 输入输出：输入当前正式状态和动作；输出更新后的正式状态。
- * 处理流程：计算得分与货物流向、更新玩家机车等级或直接推进货运轮次。
+ * 处理流程：先锁定合法运输候选，再生成待决线路分队列，最后在所有选择完成后推进到下一位玩家。
  */
 
 import type { GameAction } from "../../state/actionTypes";
-import type { GoodsColor } from "../../contracts/domain";
-import type { DeliveryCandidate, GameState } from "../../state/gameState";
-import { ensureCashForImmediateCost } from "../../rules/finance";
+import type { GoodsColor, TrackPointDestination } from "../../contracts/domain";
+import type { DeliveryCandidate, GameState, PlayerState } from "../../state/gameState";
 import { getDeliveryCandidates } from "../../rules/goodsDelivery";
 import { appendLog, advanceMovePlayer, nextMovePhase, replacePlayer } from "./shared";
 
@@ -24,11 +23,17 @@ function removeFirstCube(cubes: readonly GoodsColor[], color: GoodsColor): Goods
   return cubes.filter((_, cubeIndex) => cubeIndex !== index);
 }
 
+function applyTrackPointChoice(player: PlayerState, points: number, destination: TrackPointDestination) {
+  return destination === "income"
+    ? { ...player, income: player.income + points }
+    : { ...player, victoryPoints: player.victoryPoints + points };
+}
+
 /**
- * 功能：执行一条合法运货方案。
+ * 功能：执行一条合法运货方案，并在需要时进入线路分选择阶段。
  * 参数：`state` 是当前正式状态，`action` 是运货动作。
- * 返回：进入下一位玩家或下一货运轮的正式状态。
- * 逻辑：先找候选方案，再更新得分和货物分布，最后推进货运阶段。
+ * 返回：若无人得分则直接推进，否则进入 `resolve-delivery` 阶段。
+ * 逻辑：先把货物从地图上移走，再为所有得分玩家生成按规则顺序排列的选择队列。
  */
 export function deliverGoods(
   state: GameState,
@@ -44,14 +49,8 @@ export function deliverGoods(
     return appendLog(state, "warning", "找不到运货玩家。");
   }
 
-  const nextPlayers = state.players.map((player) => ({
-    ...player,
-    victoryPoints: player.victoryPoints + (candidate.pointsByOwner[player.id] ?? 0),
-  }));
-
   const nextState: GameState = {
     ...state,
-    players: nextPlayers,
     map: {
       ...state.map,
       cityGoods: {
@@ -61,43 +60,162 @@ export function deliverGoods(
     },
   };
 
+  const moveOrder = state.turn.moveOrder?.length ? state.turn.moveOrder : state.turn.turnOrder;
+  const queue = [
+    { playerId: actingPlayer.id, points: candidate.pointsByOwner[actingPlayer.id] ?? 0 },
+    ...moveOrder
+      .filter((playerId) => playerId !== actingPlayer.id)
+      .map((playerId) => ({ playerId, points: candidate.pointsByOwner[playerId] ?? 0 })),
+  ].filter((entry) => entry.points > 0);
+
   const payoutText = Object.entries(candidate.pointsByOwner)
     .map(([ownerId, points]) => {
-      const playerName = nextPlayers.find((player) => player.id === ownerId)?.name ?? ownerId;
+      const playerName = state.players.find((player) => player.id === ownerId)?.name ?? ownerId;
       return `${playerName}+${points}`;
     })
     .join("，");
 
+  if (queue.length === 0) {
+    return appendLog(
+      advanceMovePlayer(nextState, nextMovePhase(state)),
+      "action",
+      `${actingPlayer.name} 将 ${candidate.goodsColor} 货物从 ${candidate.sourceHexId} 运到 ${candidate.destinationHexId}。`,
+    );
+  }
+
+  const firstDecisionPlayerId = queue[0]!.playerId;
   return appendLog(
-    advanceMovePlayer(nextState, nextMovePhase(state)),
+    {
+      ...nextState,
+      turn: {
+        ...nextState.turn,
+        phase: "resolve-delivery",
+        currentPlayerIndex: moveOrder.indexOf(firstDecisionPlayerId),
+        pendingDeliveryResolution: {
+          candidate,
+          queue,
+          resolvedChoices: {},
+          sourcePhase: state.turn.phase as "move-goods-round-1" | "move-goods-round-2",
+        },
+      },
+    },
     "action",
-    `${actingPlayer.name} 将 ${candidate.goodsColor} 货物从 ${candidate.sourceHexId} 运到 ${candidate.destinationHexId}。${payoutText ? ` 线路得分：${payoutText}。` : ""}`,
+    `${actingPlayer.name} 将 ${candidate.goodsColor} 货物从 ${candidate.sourceHexId} 运到 ${candidate.destinationHexId}。线路分：${payoutText}。`,
   );
 }
 
 /**
- * 功能：升级当前行动玩家的机车等级。
+ * 功能：为当前待决的线路分选择收入或胜利点去向。
+ * 参数：`state` 是当前正式状态，`playerId` 是正在做决定的玩家，`destination` 指向收入或胜利点。
+ * 返回：更新后的正式状态；若所有人都选完，则自动回到货运阶段继续推进。
+ * 逻辑：严格按队列顺序结算，不允许跳过或同时处理多人。
+ */
+export function chooseTrackPointsDestination(
+  state: GameState,
+  playerId: string,
+  destination: TrackPointDestination,
+): GameState {
+  const pending = state.turn.pendingDeliveryResolution;
+  if (!pending || pending.queue.length === 0) {
+    return appendLog(state, "warning", "当前没有待分配的线路分。");
+  }
+
+  const currentChoice = pending.queue[0]!;
+  if (currentChoice.playerId !== playerId) {
+    return appendLog(state, "warning", "当前还没轮到该玩家决定线路分去向。");
+  }
+
+  const player = state.players.find((item) => item.id === playerId);
+  if (!player) {
+    return appendLog(state, "warning", "找不到要分配线路分的玩家。");
+  }
+
+  const updatedPlayer = applyTrackPointChoice(player, currentChoice.points, destination);
+  const updatedState = replacePlayer(state, playerId, updatedPlayer);
+  const nextQueue = pending.queue.slice(1);
+  const moveOrder = state.turn.moveOrder?.length ? state.turn.moveOrder : state.turn.turnOrder;
+
+  const withChoiceRecorded: GameState = appendLog(
+    {
+      ...updatedState,
+      turn: {
+        ...updatedState.turn,
+        pendingDeliveryResolution: {
+          ...pending,
+          queue: nextQueue,
+          resolvedChoices: {
+            ...pending.resolvedChoices,
+            [playerId]: destination,
+          },
+        },
+      },
+    },
+    "action",
+    `${updatedPlayer.name} 选择将 ${currentChoice.points} 点线路分加到${destination === "income" ? "收入" : "胜利点"}。`,
+  );
+
+  if (nextQueue.length === 0) {
+    return advanceMovePlayer(
+      {
+        ...withChoiceRecorded,
+        turn: {
+          ...withChoiceRecorded.turn,
+          phase: pending.sourcePhase,
+          pendingDeliveryResolution: null,
+        },
+      },
+      nextMovePhase({
+        ...withChoiceRecorded,
+        turn: {
+          ...withChoiceRecorded.turn,
+          phase: pending.sourcePhase,
+        },
+      }),
+    );
+  }
+
+  return {
+    ...withChoiceRecorded,
+    turn: {
+      ...withChoiceRecorded.turn,
+      phase: "resolve-delivery",
+      currentPlayerIndex: moveOrder.indexOf(nextQueue[0]!.playerId),
+      pendingDeliveryResolution: {
+        ...withChoiceRecorded.turn.pendingDeliveryResolution!,
+        queue: nextQueue,
+      },
+    },
+  };
+}
+
+/**
+ * 功能：在货运阶段免费升级一次机车。
  * 参数：`state` 是当前正式状态，`playerId` 是行动玩家。
  * 返回：进入下一位玩家或下一货运轮的正式状态。
- * 逻辑：支付升级费用、提高机车等级，并标记本回合已经升级过。
+ * 逻辑：运输阶段升级不收取现金，只检查本回合是否已经免费升级过。
  */
 export function upgradeLocomotive(state: GameState, playerId: string): GameState {
   const player = state.players.find((item) => item.id === playerId);
   if (!player) {
     return appendLog(state, "warning", "找不到升级机车的玩家。");
   }
+  if (player.locomotiveLevel >= 6) {
+    return appendLog(state, "warning", "机车等级已经达到 6 级上限。");
+  }
+  if (state.turn.upgradedThisTurn[playerId]) {
+    return appendLog(state, "warning", "本回合运输阶段已经免费升级过一次机车。");
+  }
 
-  const upgraded = ensureCashForImmediateCost(player, state.ruleset.actionCosts.locomotiveBase);
   const nextState = replacePlayer(state, playerId, {
-    ...upgraded.player,
-    locomotiveLevel: upgraded.player.locomotiveLevel + 1,
+    ...player,
+    locomotiveLevel: player.locomotiveLevel + 1,
   });
 
   return {
     ...appendLog(
       advanceMovePlayer(nextState, nextMovePhase(state)),
       "action",
-      `${player.name} 将机车升级到 ${player.locomotiveLevel + 1} 级。`,
+      `${player.name} 免费将机车升级到 ${player.locomotiveLevel + 1} 级。`,
     ),
     turn: {
       ...nextState.turn,

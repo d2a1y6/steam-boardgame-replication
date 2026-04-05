@@ -14,6 +14,7 @@ import {
   type Bot,
   type DeliveryCandidate,
   type EngineSession,
+  type GoodsColor,
 } from "@steam/game-core";
 
 interface UseSessionCommandsOptions {
@@ -34,14 +35,15 @@ interface UseSessionCommandsOptions {
 export function useSessionCommands(options: UseSessionCommandsOptions) {
   const { session, currentPlayerId, humanPlayerId, phase, bot, updateSession } = options;
 
-  function selectActionTile(tileId: ActionTileId) {
+  function selectActionTile(tileId: ActionTileId, usePassOption = false) {
     updateSession(
       applyAction(session, {
         type: "select-action-tile",
         playerId: humanPlayerId,
         tileId,
+        usePassOption,
       }),
-      "已选择行动牌。",
+      usePassOption ? "已选择行动牌并使用 Pass Option。" : "已选择行动牌。",
     );
   }
 
@@ -84,6 +86,74 @@ export function useSessionCommands(options: UseSessionCommandsOptions) {
         candidateId: candidate.id,
       }),
       "已执行运货。",
+    );
+  }
+
+  function chooseTrackPointsDestination(destination: "income" | "victory-points") {
+    updateSession(
+      applyAction(session, {
+        type: "choose-track-points-destination",
+        playerId: humanPlayerId,
+        destination,
+      }),
+      destination === "income" ? "已把线路分加到收入。" : "已把线路分加到胜利点。",
+    );
+  }
+
+  function performCityGrowth(cityHexId: string, supplyGroupId: string) {
+    updateSession(
+      applyAction(session, {
+        type: "perform-city-growth",
+        playerId: humanPlayerId,
+        cityHexId,
+        supplyGroupId,
+      }),
+      "已执行 City Growth。",
+    );
+  }
+
+  function performUrbanization(townHexId: string, newCityColor: GoodsColor, supplyGroupId: string) {
+    updateSession(
+      applyAction(session, {
+        type: "perform-urbanization",
+        playerId: humanPlayerId,
+        townHexId,
+        newCityColor,
+        supplyGroupId,
+      }),
+      "已执行 Urbanization。",
+    );
+  }
+
+  function buyCapital(steps: number) {
+    updateSession(
+      applyAction(session, {
+        type: "buy-capital",
+        playerId: humanPlayerId,
+        steps,
+      }),
+      "已完成本回合买资本。",
+    );
+  }
+
+  function placeAuctionBid(bid: number) {
+    updateSession(
+      applyAction(session, {
+        type: "place-auction-bid",
+        playerId: humanPlayerId,
+        bid,
+      }),
+      `已在标准版竞拍中出价 $${bid}。`,
+    );
+  }
+
+  function passAuction() {
+    updateSession(
+      applyAction(session, {
+        type: "pass-auction",
+        playerId: humanPlayerId,
+      }),
+      "已在标准版竞拍中选择 pass。",
     );
   }
 
@@ -171,6 +241,12 @@ export function useSessionCommands(options: UseSessionCommandsOptions) {
     resetBuild,
     commitBuildDraft,
     deliverGoods,
+    chooseTrackPointsDestination,
+    performCityGrowth,
+    performUrbanization,
+    buyCapital,
+    placeAuctionBid,
+    passAuction,
     upgradeLocomotive,
     passMove,
     resolveCurrentPhase,

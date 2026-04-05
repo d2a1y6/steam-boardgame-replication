@@ -4,9 +4,10 @@
  * 处理流程：若收入为正则拿钱，若收入为负则按融资规则支付。
  */
 
+import type { GameMode } from "../contracts/domain";
 import type { PlayerState } from "../state/gameState";
 import { resolveIncome as settleIncome } from "./finance";
 
-export function resolvePlayerIncome(player: PlayerState) {
-  return settleIncome(player);
+export function resolvePlayerIncome(player: PlayerState, mode: GameMode) {
+  return settleIncome(player, mode);
 }

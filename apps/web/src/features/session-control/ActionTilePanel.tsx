@@ -1,7 +1,7 @@
 /**
  * 功能概述：展示行动牌占用情况，并允许真人在选牌阶段直接选择。
  * 输入输出：输入行动牌列表、当前玩家和回调；输出行动牌按钮面板。
- * 处理流程：把牌面价值、占用状态和可选状态压成一组按钮。
+ * 处理流程：把牌面价值、占用状态和 Pass Option 一起压成一组按钮。
  */
 
 import type { SelectableActionTileView } from "@steam/game-core";
@@ -13,7 +13,7 @@ export function ActionTilePanel({
 }: {
   tiles: readonly SelectableActionTileView[];
   currentPlayerName: string;
-  onSelect: (tileId: string) => void;
+  onSelect: (tileId: string, usePassOption?: boolean) => void;
 }) {
   return (
     <section style={panelStyle}>
@@ -21,15 +21,11 @@ export function ActionTilePanel({
       <p style={metaStyle}>当前由 {currentPlayerName} 选牌。</p>
       <div style={gridStyle}>
         {tiles.map((tile) => (
-          <button
+          <div
             key={tile.tileId}
-            type="button"
-            disabled={tile.disabled}
-            onClick={() => onSelect(tile.tileId)}
             style={{
-              ...buttonStyle,
+              ...buttonBoxStyle,
               opacity: tile.disabled ? 0.52 : 1,
-              cursor: tile.disabled ? "default" : "pointer",
             }}
           >
             <div style={buttonTitleStyle}>{tile.label}</div>
@@ -37,7 +33,35 @@ export function ActionTilePanel({
             <div style={buttonMetaStyle}>
               {tile.selectedByPlayerId ? `已被 ${tile.selectedByPlayerId} 选走` : "可选择"}
             </div>
-          </button>
+            <div style={buttonRowStyle}>
+              <button
+                type="button"
+                disabled={tile.disabled}
+                onClick={() => onSelect(tile.tileId)}
+                aria-label={`选择 ${tile.label}`}
+                style={{
+                  ...buttonStyle,
+                  cursor: tile.disabled ? "default" : "pointer",
+                }}
+              >
+                选这张牌
+              </button>
+              {tile.hasPassOption ? (
+                <button
+                  type="button"
+                  disabled={tile.disabled}
+                  onClick={() => onSelect(tile.tileId, true)}
+                  aria-label={`对 ${tile.label} 使用 Pass Option`}
+                  style={{
+                    ...buttonStyle,
+                    cursor: tile.disabled ? "default" : "pointer",
+                  }}
+                >
+                  Pass Option
+                </button>
+              ) : null}
+            </div>
+          </div>
         ))}
       </div>
     </section>
@@ -69,12 +93,26 @@ const gridStyle = {
   gap: 6,
 } as const;
 
-const buttonStyle = {
+const buttonBoxStyle = {
   padding: "8px 9px",
   borderRadius: 8,
   border: "1px solid rgba(59,47,40,0.18)",
   background: "rgba(255,255,255,0.76)",
   textAlign: "left",
+} as const;
+
+const buttonRowStyle = {
+  display: "flex",
+  gap: 6,
+  marginTop: 6,
+  flexWrap: "wrap",
+} as const;
+
+const buttonStyle = {
+  padding: "5px 7px",
+  borderRadius: 8,
+  border: "1px solid rgba(59,47,40,0.18)",
+  background: "rgba(255,255,255,0.82)",
 } as const;
 
 const buttonTitleStyle = {

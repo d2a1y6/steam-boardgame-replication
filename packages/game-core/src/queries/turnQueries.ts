@@ -23,6 +23,11 @@ function currentPlayerId(session: EngineSession) {
   const order =
     state.turn.phase === "build-track" && state.turn.buildOrder.length > 0
       ? state.turn.buildOrder
+      : (state.turn.phase === "move-goods-round-1"
+        || state.turn.phase === "move-goods-round-2"
+        || state.turn.phase === "resolve-delivery")
+        && state.turn.moveOrder?.length
+        ? state.turn.moveOrder
       : state.turn.turnOrder;
   return order[state.turn.currentPlayerIndex] ?? null;
 }

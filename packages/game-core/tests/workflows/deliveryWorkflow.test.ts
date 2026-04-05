@@ -54,7 +54,18 @@ describe("deliveryWorkflow", () => {
       candidateId: candidates[0]!.id,
     });
 
-    expect(resolved.committed.players[0]?.victoryPoints).toBe(1);
+    expect(resolved.committed.turn.phase).toBe("resolve-delivery");
+    expect(resolved.committed.turn.pendingDeliveryResolution?.queue[0]?.playerId).toBe("player-1");
     expect(resolved.committed.map.cityGoods["new-york"]).toHaveLength(0);
+
+    const afterChoice = applyAction(resolved, {
+      type: "choose-track-points-destination",
+      playerId: "player-1",
+      destination: "victory-points",
+    });
+
+    expect(afterChoice.committed.players[0]?.victoryPoints).toBe(1);
+    expect(afterChoice.committed.turn.phase).toBe("move-goods-round-1");
+    expect(afterChoice.committed.turn.currentPlayerIndex).toBe(1);
   });
 });

@@ -7,7 +7,25 @@
 import type { ActionTileId } from "../contracts/domain";
 
 export type GameAction =
-  | { type: "select-action-tile"; playerId: string; tileId: ActionTileId }
+  | {
+      type: "select-action-tile";
+      playerId: string;
+      tileId: ActionTileId;
+      usePassOption?: boolean;
+    }
+  | {
+      type: "perform-city-growth";
+      playerId: string;
+      cityHexId: string;
+      supplyGroupId: string;
+    }
+  | {
+      type: "perform-urbanization";
+      playerId: string;
+      townHexId: string;
+      newCityColor: string;
+      supplyGroupId: string;
+    }
   | { type: "finish-build"; playerId: string }
   | {
       type: "place-track";
@@ -17,8 +35,16 @@ export type GameAction =
       rotation: number;
     }
   | { type: "deliver-goods"; playerId: string; candidateId: string }
+  | {
+      type: "choose-track-points-destination";
+      playerId: string;
+      destination: "income" | "victory-points";
+    }
   | { type: "upgrade-locomotive"; playerId: string }
   | { type: "pass-move"; playerId: string }
+  | { type: "buy-capital"; playerId: string; steps: number }
+  | { type: "place-auction-bid"; playerId: string; bid: number }
+  | { type: "pass-auction"; playerId: string }
   | { type: "resolve-income"; playerId: string }
   | { type: "advance-turn-order" }
   | { type: "set-up-next-turn" };

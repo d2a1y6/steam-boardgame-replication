@@ -19,6 +19,22 @@ import { advancePlayerInBuildPhase, advanceTurnOrderPhase, resolveIncomePhase } 
  * 逻辑：先提交当前草稿，再推进建轨顺位。
  */
 export function finishBuild(session: EngineSession): GameState {
+  const currentState = session.draft?.working ?? session.committed;
+  const buildOrder = currentState.turn.buildOrder.length > 0 ? currentState.turn.buildOrder : currentState.turn.turnOrder;
+  const currentPlayerId = buildOrder[currentState.turn.currentPlayerIndex] ?? null;
+  if (currentPlayerId && (currentState.turn.pendingBuildActions?.[currentPlayerId] ?? null) != null) {
+    return {
+      ...currentState,
+      logs: [
+        ...currentState.logs,
+        {
+          id: `log-${currentState.logs.length + 1}`,
+          kind: "warning",
+          message: "当前玩家还有未执行的 City Growth / Urbanization。",
+        },
+      ],
+    };
+  }
   return advancePlayerInBuildPhase(commitDraft(session).committed);
 }
 
@@ -31,7 +47,7 @@ export function finishBuild(session: EngineSession): GameState {
 export function resolveIncomeAction(state: GameState): GameState {
   return resolveIncomePhase({
     ...cloneState(state),
-    players: cloneState(state.players).map((player) => resolveIncome(player)),
+    players: cloneState(state.players).map((player) => resolveIncome(player, state.mode)),
   });
 }
 
@@ -52,5 +68,5 @@ export function advanceTurnOrderAction(state: GameState): GameState {
  * 逻辑：让阶段机负责重置回合级字段和日志。
  */
 export function setUpNextTurnAction(state: GameState): GameState {
-  return enterPhase(cloneState(state), "select-action");
+  return enterPhase(cloneState(state), state.mode === "standard" ? "buy-capital" : "select-action");
 }

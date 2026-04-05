@@ -27,7 +27,7 @@ export function handlePassMove(state: GameState, playerId: string): GameState {
 export function handleResolveIncome(session: EngineSession) {
   return advancePhase({
     ...cloneState(session.committed),
-    players: cloneState(session.committed.players).map((player) => resolveIncome(player)),
+    players: cloneState(session.committed.players).map((player) => resolveIncome(player, session.committed.mode)),
   });
 }
 
@@ -36,5 +36,5 @@ export function handleAdvanceTurnOrder(session: EngineSession) {
 }
 
 export function handleSetUpNextTurn(session: EngineSession) {
-  return enterPhase(cloneState(session.committed), "select-action");
+  return enterPhase(cloneState(session.committed), session.committed.mode === "standard" ? "buy-capital" : "select-action");
 }

@@ -26,7 +26,7 @@ export interface ActionTileDefinition {
 
 export interface TileManifestEntry {
   readonly id: string;
-  readonly exits: readonly [number, number][];
+  readonly exits: readonly [number | "town", number | "town"][];
   readonly count: number;
   readonly isTownTile: boolean;
   readonly baseCost: number;
@@ -75,6 +75,8 @@ export interface RuleSet {
   readonly canRaiseMoneyDuringTurn: boolean;
   readonly actionCosts: ActionCostTable;
 }
+
+export type TrackPointDestination = "income" | "victory-points";
 
 export type RuleReasonContextValue =
   | string

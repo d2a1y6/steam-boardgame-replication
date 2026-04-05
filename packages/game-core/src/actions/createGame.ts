@@ -17,6 +17,7 @@ export interface CreateGameOptions {
   readonly mapId?: string;
   readonly mode?: GameMode;
   readonly humanPlayerIndex?: number;
+  readonly seed?: number;
 }
 
 export function createGame(options: CreateGameOptions): EngineSession {
@@ -35,6 +36,7 @@ export function createGame(options: CreateGameOptions): EngineSession {
       map: options.map,
       ruleset: options.ruleset,
       content: options.content,
+      seed: options.seed,
     }),
     draft: null,
     config: {
@@ -42,6 +44,7 @@ export function createGame(options: CreateGameOptions): EngineSession {
       mapId,
       playerCount,
       humanPlayerIndex,
+      seed: options.seed,
     },
     actionHistory: [],
   };

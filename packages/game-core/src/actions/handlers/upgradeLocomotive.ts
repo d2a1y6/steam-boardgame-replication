@@ -5,7 +5,6 @@
  */
 
 import type { GameState } from "../../state/gameState";
-import { ensureCashForImmediateCost } from "../../rules/finance";
 import { appendLog, replacePlayer } from "../helpers";
 
 export function handleUpgradeLocomotive(state: GameState, playerId: string): GameState {
@@ -13,11 +12,12 @@ export function handleUpgradeLocomotive(state: GameState, playerId: string): Gam
   if (!player) {
     return appendLog(state, "warning", "找不到升级机车的玩家。");
   }
-
-  const upgraded = ensureCashForImmediateCost(player, state.ruleset.actionCosts.locomotiveBase);
+  if (player.locomotiveLevel >= 6) {
+    return appendLog(state, "warning", "机车等级已经达到 6 级上限。");
+  }
   const nextState = replacePlayer(state, playerId, {
-    ...upgraded.player,
-    locomotiveLevel: upgraded.player.locomotiveLevel + 1,
+    ...player,
+    locomotiveLevel: player.locomotiveLevel + 1,
   });
 
   return {

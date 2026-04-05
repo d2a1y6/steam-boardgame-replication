@@ -7,7 +7,10 @@
 import type { TileManifestEntry } from "../contracts/domain";
 import type { TrackPieceState, TrackSegmentState } from "../state/gameState";
 
-function rotateEdge(edge: number, rotation: number) {
+function rotateEdge(edge: number | "town", rotation: number) {
+  if (edge === "town") {
+    return edge;
+  }
   return (edge + rotation + 6) % 6;
 }
 
@@ -21,7 +24,7 @@ export function buildSegments(trackPieces: TrackPieceState[], tileManifest: read
     return manifest.exits.map(([edgeA, edgeB], index) => ({
       id: `${track.id}:segment-${index + 1}`,
       trackId: track.id,
-      ownerId: track.ownerId,
+      ownerId: track.segmentOwners?.[index] ?? track.ownerId,
       endpoints: [
         { hexId: track.hexId, edge: rotateEdge(edgeA, track.rotation) },
         { hexId: track.hexId, edge: rotateEdge(edgeB, track.rotation) },

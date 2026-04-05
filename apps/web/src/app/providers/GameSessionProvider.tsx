@@ -17,7 +17,7 @@ import {
   type EngineSession,
   type ReplayFrame,
 } from "@steam/game-core";
-import { getMapDefinition, getRuleSet, steamContentCatalogs } from "@steam/game-content";
+import { getMapDefinition, getRuleSet, neUsaSeCanadaMap, ruhrMap, steamContentCatalogs } from "@steam/game-content";
 import { buildDefaultPlayerNames } from "../../features/game-setup/defaultPlayerNames";
 import type { GameSetupView } from "../../features/game-setup/GameSetupPanel";
 import {
@@ -62,8 +62,8 @@ const GameSessionContext = createContext<GameSessionContextValue | null>(null);
 function createPlayableSession(setup: GameSetupView): EngineSession {
   const playerNames = buildDefaultPlayerNames(setup.playerCount, setup.nameOffset);
   const botPlayerIds = playerNames.slice(1).map((_, index) => `player-${index + 2}`);
-  const map = getMapDefinition("ne-usa-se-canada");
-  const ruleset = getRuleSet("base");
+  const map = getMapDefinition(setup.mapId);
+  const ruleset = getRuleSet(setup.mode);
 
   if (!map || !ruleset) {
     throw new Error("默认地图或规则集不存在。");
@@ -77,6 +77,7 @@ function createPlayableSession(setup: GameSetupView): EngineSession {
     content: steamContentCatalogs,
     mapId: map.id,
     mode: ruleset.mode,
+    seed: setup.seed > 0 ? setup.seed : undefined,
   });
 }
 
@@ -100,10 +101,22 @@ function latestNotice(session: EngineSession, fallback: string): string {
  * 逻辑：统一托管建局、回放、notice 和存档，避免页面组件直接拼接基础设施逻辑。
  */
 export function GameSessionProvider({ children }: { children: ReactNode }) {
-  const [setup, setSetup] = useState<GameSetupView>({ playerCount: 3, nameOffset: 0 });
-  const [{ session, replayFrames }, setShellState] = useState(() => buildInitialShellState({ playerCount: 3, nameOffset: 0 }));
+  const [setup, setSetup] = useState<GameSetupView>({
+    mode: "base",
+    mapId: "ne-usa-se-canada",
+    playerCount: 3,
+    nameOffset: 0,
+    seed: 0,
+  });
+  const [{ session, replayFrames }, setShellState] = useState(() => buildInitialShellState({
+    mode: "base",
+    mapId: "ne-usa-se-canada",
+    playerCount: 3,
+    nameOffset: 0,
+    seed: 0,
+  }));
   const [savedGames, setSavedGames] = useState<SavedGameEntry[]>(() => listSavedGames());
-  const [notice, setNotice] = useState("当前默认由 Alice 作为真人玩家；先在行动牌面板中选牌。");
+  const [notice, setNotice] = useState("当前默认由 Alice 作为真人玩家；先在行动牌面板中选牌，或直接切到标准版测试买资本和竞拍。");
   const bot = useMemo(() => new RandomBot(() => 0), []);
 
   const game = getWorkingState(session);
@@ -143,7 +156,8 @@ export function GameSessionProvider({ children }: { children: ReactNode }) {
    */
   function createNewGame() {
     const nextState = buildInitialShellState(setup);
-    replaceSession(nextState.session, nextState.replayFrames, `已创建 ${setup.playerCount} 人新对局。`);
+    const mapName = getMapDefinition(setup.mapId)?.name ?? setup.mapId;
+    replaceSession(nextState.session, nextState.replayFrames, `已创建 ${setup.playerCount} 人 ${setup.mode} / ${mapName} 新对局。`);
   }
 
   /**
@@ -243,3 +257,8 @@ export function useGameSession() {
   }
   return context;
 }
+
+export const WEB_MAP_OPTIONS = [
+  { id: neUsaSeCanadaMap.id, label: neUsaSeCanadaMap.name, disabled: false },
+  { id: ruhrMap.id, label: `${ruhrMap.name}（数据待补完）`, disabled: ruhrMap.hexes.length === 0 },
+] as const;

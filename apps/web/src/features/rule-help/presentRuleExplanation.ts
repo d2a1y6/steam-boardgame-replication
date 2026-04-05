@@ -63,14 +63,34 @@ export function presentRuleReason(reason: RuleReason): string {
       return "行动牌阶段";
     case "SELECT_ACTION_BODY":
       return "先选一张未被占用的行动牌。行动牌既决定顺位，也决定后续阶段的特殊能力。";
+    case "BUY_CAPITAL_TITLE":
+      return "买资本阶段";
+    case "BUY_CAPITAL_BODY":
+      return "标准版每回合先倒退收入轨换取现金；这一回合后续支付不能再靠临时融资补洞。";
+    case "STANDARD_AUCTION_TITLE":
+      return "顺位竞拍阶段";
+    case "STANDARD_AUCTION_BODY":
+      return "标准版每回合都要竞拍本回合顺位。Turn Order 会给你一次免费的 pass，但不会直接送你首位。";
     case "BUILD_TRACK_TITLE":
       return "建轨阶段";
     case "BUILD_TRACK_BODY":
       return "先选轨道板，再点地图上的高亮 hex，最后在工作台里确认朝向和费用。";
+    case "CITY_GROWTH_TITLE":
+      return "执行 City Growth";
+    case "CITY_GROWTH_BODY":
+      return "从一个 Goods Supply 拿整组 cubes，放到一个还没有 growth marker 的城市上，并立刻放 marker。";
+    case "URBANIZATION_TITLE":
+      return "执行 Urbanization";
+    case "URBANIZATION_BODY":
+      return "把一个 town 升级成新城市，必要时先移走旧轨道，再放入整组 goods 和 growth marker。";
     case "MOVE_GOODS_TITLE":
       return "货运阶段";
     case "MOVE_GOODS_BODY":
       return "先选货物源，再选候选方案。系统已经把合法路径与得分分配缩成了少量可选方案。";
+    case "TRACK_POINT_CHOICE_TITLE":
+      return "分配线路分";
+    case "TRACK_POINT_CHOICE_BODY":
+      return `这次交付给你带来 ${asNumber(reason.context?.points)} 点线路分。你必须整笔加到收入或整笔加到胜利点。`;
     case "GENERIC_PHASE_TITLE":
       return "阶段说明";
     case "NOTICE_TEXT":

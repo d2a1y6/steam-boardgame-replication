@@ -4,7 +4,14 @@
  * 处理流程：拆分玩家、地图、供给、阶段、日志等结构，给第一阶段骨架提供稳定边界。
  */
 
-import type { ActionTileId, GameContentCatalogs, GoodsColor, MapDefinition, RuleSet } from "../contracts/domain";
+import type {
+  ActionTileId,
+  GameContentCatalogs,
+  GoodsColor,
+  MapDefinition,
+  RuleSet,
+  TrackPointDestination,
+} from "../contracts/domain";
 
 export type PlayerColor =
   | "orange"
@@ -15,10 +22,13 @@ export type PlayerColor =
   | "black";
 
 export type TurnPhase =
+  | "buy-capital"
+  | "auction-turn-order"
   | "select-action"
   | "build-track"
   | "move-goods-round-1"
   | "move-goods-round-2"
+  | "resolve-delivery"
   | "income"
   | "determine-order"
   | "set-up-next-turn"
@@ -57,11 +67,12 @@ export interface TrackPieceState {
   tileId: string;
   ownerId: string;
   rotation: number;
+  segmentOwners?: string[];
 }
 
 export interface SegmentEndpoint {
   hexId: string;
-  edge: number;
+  edge: number | "town";
 }
 
 export interface TrackSegmentState {
@@ -89,6 +100,28 @@ export interface NewCityState {
   color: GoodsColor;
 }
 
+export interface PendingTrackPointChoice {
+  playerId: string;
+  points: number;
+}
+
+export interface PendingDeliveryResolution {
+  candidate: DeliveryCandidate;
+  queue: PendingTrackPointChoice[];
+  resolvedChoices: Record<string, TrackPointDestination>;
+  sourcePhase: "move-goods-round-1" | "move-goods-round-2";
+}
+
+export interface AuctionState {
+  currentBid: number;
+  leaderPlayerId: string | null;
+  playerBids: Record<string, number>;
+  passedPlayerIds: string[];
+  finalOrder: string[];
+  bonusPassPlayerId: string | null;
+  bonusPassUsedByPlayer: Record<string, boolean>;
+}
+
 export interface MapRuntimeState {
   definition: MapDefinition;
   trackPieces: TrackPieceState[];
@@ -107,10 +140,17 @@ export interface TurnState {
   turnOrder: string[];
   currentPlayerIndex: number;
   buildOrder: string[];
+  moveOrder?: string[];
   selectedActionTiles: Record<string, ActionTileId | null>;
+  passedActionTiles?: Record<string, boolean>;
+  pendingBuildActions?: Record<string, Extract<ActionTileId, "city-growth" | "urbanization"> | null>;
   buildAllowanceRemaining: number;
   moveActionsTaken: Record<string, number>;
   upgradedThisTurn: Record<string, boolean>;
+  pendingDeliveryResolution?: PendingDeliveryResolution | null;
+  auctionState?: AuctionState | null;
+  capitalBoughtThisTurn?: Record<string, number>;
+  bonusAuctionPassPlayerId?: string | null;
 }
 
 export interface SupplyState {

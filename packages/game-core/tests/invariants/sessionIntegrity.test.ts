@@ -67,27 +67,31 @@ describe("session invariants", () => {
     session = applyAction(session, { type: "select-action-tile", playerId: "player-3", tileId: "first-build" });
     assertSessionInvariants(session);
 
-    const buildableHexId = getBuildableHexIds(session, "player-1", "21")[0];
+    const activeBuilderId = getWorkingState(session).turn.buildOrder[getWorkingState(session).turn.currentPlayerIndex] ?? "player-1";
+    const buildTileId = ["21", "22", "23", "T21", "T22", "T23", "T11"].find(
+      (tileId) => getBuildableHexIds(session, activeBuilderId, tileId).length > 0,
+    );
+    const buildableHexId = buildTileId ? getBuildableHexIds(session, activeBuilderId, buildTileId)[0] : null;
     if (!buildableHexId) {
       throw new Error("未找到合法建轨位置。");
     }
-    const placement = getTrackPlacementOptions(session, "player-1", "21", buildableHexId)[0];
+    const placement = getTrackPlacementOptions(session, activeBuilderId, buildTileId!, buildableHexId)[0];
     if (!placement) {
       throw new Error("未找到合法朝向。");
     }
 
     session = applyAction(session, {
       type: "place-track",
-      playerId: "player-1",
+      playerId: activeBuilderId,
       hexId: buildableHexId,
-      tileId: "21",
+      tileId: buildTileId!,
       rotation: placement.rotation,
     });
     assertSessionInvariants(session);
 
     session = applyAction(session, {
       type: "finish-build",
-      playerId: "player-1",
+      playerId: activeBuilderId,
     });
     assertSessionInvariants(session);
   });
